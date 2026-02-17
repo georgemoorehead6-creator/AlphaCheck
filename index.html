@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>AlphaCheck 5.1.3</title>
+    <title>AlphaCheck 5.1.4</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
@@ -14,9 +14,8 @@
             display: flex; flex-direction: column; height: 100vh; box-sizing: border-box;
         }
         header { padding: 10px 0; border-bottom: 1px solid #222; margin-bottom: 5px; }
-        h1 { margin: 0; font-size: 1.8rem; letter-spacing: 1px; text-align: center; font-weight: 900; color: #fff; }
+        h1 { margin: 0; font-size: 2.2rem; letter-spacing: -1px; text-align: center; font-weight: 700; color: #fff; }
         
-        /* Larger Input Field */
         form { width: 100%; margin: 5px 0; }
         input { 
             width: 100%; background: #1a1a1a; border: 2px solid #444; color: var(--accent);
@@ -46,11 +45,11 @@
     </style>
 </head>
 <body>
-    <header><h1>ALPHACHECK</h1></header>
+    <header><h1>AlphaCheck</h1></header>
 
     <div class="label" style="margin-bottom:4px; text-align: center;">Target Datum (Decimal)</div>
-    <form action="javascript:void(0);" onsubmit="updateAll()">
-        <input type="text" id="targetInput" inputmode="decimal" placeholder="48.3124, -122.6732" oninput="updateAll()">
+    <form action="javascript:void(0);" onsubmit="document.getElementById('targetInput').blur(); updateAll();">
+        <input type="text" id="targetInput" placeholder="48.3124, -122.6732" oninput="updateAll()">
     </form>
 
     <div id="visual-area">
@@ -79,14 +78,11 @@
         let targetPos = { lat: 0, lon: 0 };
         let currentHeading = 0;
 
-        // Added leading zero logic for degrees
         function toFullCoord(deg, isLat, format) {
             if (!deg && deg !== 0) return "--";
             const dir = isLat ? (deg >= 0 ? 'N' : 'S') : (deg >= 0 ? 'E' : 'W');
             const absDeg = Math.abs(deg);
             const d = Math.floor(absDeg);
-            
-            // Padding: Lat needs 2 digits (01), Lon needs 3 digits (001)
             const paddedD = d.toString().padStart(isLat ? 2 : 3, '0');
             
             if (format === 'DMH') {
@@ -105,7 +101,6 @@
             if (parts.length === 2) {
                 targetPos.lat = parseFloat(parts[0]);
                 targetPos.lon = parseFloat(parts[1]);
-                
                 document.getElementById('dmhVal').innerHTML = `${toFullCoord(targetPos.lat, true, 'DMH')}<br>${toFullCoord(targetPos.lon, false, 'DMH')}`;
                 document.getElementById('dmsVal').innerHTML = `${toFullCoord(targetPos.lat, true, 'DMS')}<br>${toFullCoord(targetPos.lon, false, 'DMS')}`;
             }
@@ -120,7 +115,6 @@
             const a = Math.sin(dLat/2)**2 + Math.cos(myPos.lat * Math.PI/180) * Math.cos(targetPos.lat * Math.PI/180) * Math.sin(dLon/2)**2;
             const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             document.getElementById('distVal').innerText = distance.toFixed(2) + ' NM';
-
             const y = Math.sin(dLon) * Math.cos(targetPos.lat * Math.PI/180);
             const x = Math.cos(myPos.lat * Math.PI/180) * Math.sin(targetPos.lat * Math.PI/180) - Math.sin(myPos.lat * Math.PI/180) * Math.cos(targetPos.lat * Math.PI/180) * Math.cos(dLon);
             let bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
