@@ -9,11 +9,12 @@
     <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/180/sent.png">
 
     <style>
-        :root { --bg: #050505; --card: #121212; --accent: #00FF41; --pointer: #007AFF; }
+        :root { --bg: #050505; --card: #121212; --accent: #00FF41; --pointer: #007AFF; --target: #ff3b30; }
         body { 
             background: var(--bg); color: #fff; font-family: ui-monospace, 'Courier New', monospace;
             margin: 0; padding: env(safe-area-inset-top) 15px 40px;
             display: flex; flex-direction: column; height: 100vh; box-sizing: border-box;
+            overflow: hidden;
         }
         header { padding: 5px 0; border-bottom: 1px solid #222; text-align: center; }
         h1 { margin: 0; font-size: 1.8rem; font-weight: 700; }
@@ -25,25 +26,34 @@
 
         #visual-area { flex: 0.8; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         
-        #compass-ring { 
-            width: 170px; height: 170px; border: 2px solid #333; border-radius: 50%; position: relative; 
-            background: repeating-conic-gradient(from 0deg, #333 0deg 1deg, transparent 1deg 10deg);
-            margin-bottom: 10px;
-        }
-        .cardinal { position: absolute; font-weight: 900; font-size: 1.1rem; color: #fff; }
-        .n { top: 8px; left: 50%; transform: translateX(-50%); }
-        .s { bottom: 8px; left: 50%; transform: translateX(-50%); }
-        .e { right: 8px; top: 50%; transform: translateY(-50%); }
-        .w { left: 8px; top: 50%; transform: translateY(-50%); }
-
-        #target-arrow {
-            width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent;
-            border-bottom: 55px solid var(--pointer); position: absolute;
-            left: calc(50% - 14px); top: 18px; transform-origin: center 67px;
-            transition: transform 0.1s linear;
+        /* Fixed Lubber Line (Blue Needle) */
+        #lubber-line {
+            width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent;
+            border-bottom: 30px solid var(--pointer); position: absolute;
+            top: 25px; z-index: 10;
         }
 
-        #live-hdg-display { font-size: 1.4rem; font-weight: bold; color: var(--pointer); margin-bottom: 5px; }
+        /* Rotating Compass Card */
+        #compass-card { 
+            width: 180px; height: 180px; border: 3px solid #333; border-radius: 50%; position: relative; 
+            background: repeating-conic-gradient(from 0deg, #444 0deg 1deg, transparent 1deg 10deg);
+            transition: transform 0.2s cubic-bezier(0.1, 0.3, 0.3, 1);
+            will-change: transform;
+        }
+        .cardinal { position: absolute; font-weight: 900; font-size: 1.2rem; color: #fff; }
+        .n { top: 10px; left: 50%; transform: translateX(-50%); color: var(--target); }
+        .s { bottom: 10px; left: 50%; transform: translateX(-50%); }
+        .e { right: 10px; top: 50%; transform: translateY(-50%); }
+        .w { left: 10px; top: 50%; transform: translateY(-50%); }
+
+        /* Target Bug (Datum) */
+        #target-bug {
+            width: 14px; height: 14px; background: var(--target); border-radius: 50%;
+            position: absolute; left: calc(50% - 7px); top: 10px;
+            transform-origin: center 80px; visibility: hidden;
+        }
+
+        #live-hdg-display { font-size: 1.6rem; font-weight: bold; color: var(--pointer); margin-top: 15px; }
 
         .grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
         .box { background: var(--card); padding: 10px; border-radius: 4px; border-bottom: 1px solid #333; }
@@ -52,9 +62,8 @@
         
         .copy-row { display: flex; justify-content: space-between; align-items: center; }
         #copyBtn { background: #333; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
-
         #status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
-        .init-btn { background: #fff; color: #000; border: none; padding: 25px; font-size: 1.2rem; font-weight: 900; border-radius: 8px; width: 100%; margin-top: 10px; }
+        .init-btn { background: #fff; color: #000; border: none; padding: 25px; font-size: 1.2rem; font-weight: 900; border-radius: 8px; width: 100%; margin-top: 10px; z-index: 100; }
     </style>
 </head>
 <body>
@@ -66,29 +75,22 @@
     </form>
 
     <div id="visual-area">
-        <div id="compass-ring">
+        <div id="lubber-line"></div>
+        <div id="compass-card">
             <div class="cardinal n">N</div><div class="cardinal s">S</div>
             <div class="cardinal e">E</div><div class="cardinal w">W</div>
-            <div id="target-arrow"></div>
+            <div id="target-bug"></div>
         </div>
-        <div id="live-hdg-display">HDG: ---°</div>
+        <div id="live-hdg-display">000°</div>
     </div>
 
     <div class="grid">
         <div class="box" style="border-left: 5px solid #ff3b30; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <div class="label">Distance to Target</div>
-                <div id="distVal" class="value" style="color: #ff3b30;">0.00 NM</div>
-            </div>
-            <div style="text-align: right;">
-                <div class="label">Bearing</div>
-                <div id="headVal" class="value" style="color: #ff3b30;">---°</div>
-            </div>
+            <div><div class="label">Distance</div><div id="distVal" class="value" style="color: #ff3b30;">0.00 NM</div></div>
+            <div style="text-align: right;"><div class="label">Target Brg</div><div id="headVal" class="value" style="color: #ff3b30;">---°</div></div>
         </div>
-        
-        <div class="box"><div class="label">Degrees Decimal Minutes</div><div id="dmhVal" class="value">--° --.---'</div></div>
-        <div class="box"><div class="label">Degrees Minutes Seconds</div><div id="dmsVal" class="value">--° --' --"</div></div>
-        
+        <div class="box"><div class="label">DD MM.MMM</div><div id="dmhVal" class="value">--° --.---'</div></div>
+        <div class="box"><div class="label">DD MM SS</div><div id="dmsVal" class="value">--° --' --"</div></div>
         <div class="box" style="background: #111; border: 1px solid #444;">
             <div class="label"><span id="status-dot" style="background: #333;"></span>Current Location (WGS84)</div>
             <div class="copy-row">
@@ -104,6 +106,7 @@
         let myPos = { lat: null, lon: null };
         let targetPos = { lat: null, lon: null };
         let currentHeading = 0;
+        let lastRotation = 0;
 
         function toFullCoord(deg, isLat, format) {
             if (deg === null) return "--";
@@ -111,7 +114,6 @@
             const absDeg = Math.abs(deg);
             const d = Math.floor(absDeg);
             const paddedD = d.toString().padStart(isLat ? 2 : 3, '0');
-            
             if (format === 'DMH') {
                 const m = ((absDeg - d) * 60).toFixed(3).padStart(6, '0');
                 return `${paddedD}° ${m}' ${dir}`;
@@ -141,6 +143,7 @@
                 if (!isNaN(targetPos.lat) && !isNaN(targetPos.lon)) {
                     document.getElementById('dmhVal').innerHTML = `${toFullCoord(targetPos.lat, true, 'DMH')}<br>${toFullCoord(targetPos.lon, false, 'DMH')}`;
                     document.getElementById('dmsVal').innerHTML = `${toFullCoord(targetPos.lat, true, 'DMS')}<br>${toFullCoord(targetPos.lon, false, 'DMS')}`;
+                    document.getElementById('target-bug').style.visibility = 'visible';
                 }
             }
             calculateMetrics();
@@ -159,12 +162,14 @@
             const x = Math.cos(myPos.lat * Math.PI/180) * Math.sin(targetPos.lat * Math.PI/180) - Math.sin(myPos.lat * Math.PI/180) * Math.cos(targetPos.lat * Math.PI/180) * Math.cos(dLon);
             let bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
             document.getElementById('headVal').innerText = Math.round(bearing).toString().padStart(3, '0') + '°';
-            document.getElementById('target-arrow').style.transform = `rotate(${(bearing - currentHeading + 360) % 360}deg)`;
+            
+            // Move the target bug on the card
+            document.getElementById('target-bug').style.transform = `rotate(${bearing}deg)`;
         }
 
         async function initSensors() {
             const btn = document.getElementById('startBtn');
-            btn.innerText = "LINKING...";
+            btn.innerText = "WAITING...";
             if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
                     const response = await DeviceOrientationEvent.requestPermission();
@@ -182,9 +187,17 @@
 
         function setupOrientation() {
             window.addEventListener('deviceorientation', e => {
-                currentHeading = e.webkitCompassHeading || (360 - e.alpha) || 0;
-                document.getElementById('live-hdg-display').innerText = 'HDG: ' + Math.round(currentHeading).toString().padStart(3, '0') + '°';
-                calculateMetrics();
+                const heading = e.webkitCompassHeading || (360 - e.alpha) || 0;
+                
+                // Shortest path rotation logic
+                let diff = heading - currentHeading;
+                if (diff > 180) diff -= 360;
+                if (diff < -180) diff += 360;
+                lastRotation -= diff;
+                
+                currentHeading = heading;
+                document.getElementById('compass-card').style.transform = `rotate(${lastRotation}deg)`;
+                document.getElementById('live-hdg-display').innerText = Math.round(heading).toString().padStart(3, '0') + '°';
             }, true);
         }
     </script>
