@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>AlphaCheck</title>
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
     <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/180/sent.png">
 
     <style>
@@ -16,62 +14,78 @@
             background: var(--bg); color: #fff; font-family: ui-monospace, 'Courier New', monospace;
             margin: 0; padding: env(safe-area-inset-top) 15px 40px;
             display: flex; flex-direction: column; height: 100vh; box-sizing: border-box;
+            user-select: none; /* Prevents accidental UI selection */
         }
-        header { padding: 10px 0; border-bottom: 1px solid #222; margin-bottom: 5px; }
-        h1 { margin: 0; font-size: 2.2rem; letter-spacing: -1px; text-align: center; font-weight: 700; color: #fff; }
+        header { padding: 10px 0; border-bottom: 1px solid #222; }
+        h1 { margin: 0; font-size: 2.2rem; text-align: center; font-weight: 700; }
         
-        form { width: 100%; margin: 5px 0; }
         input { 
             width: 100%; background: #1a1a1a; border: 2px solid #444; color: var(--accent);
             padding: 15px; border-radius: 6px; font-size: 1.4rem; box-sizing: border-box; 
-            outline: none; text-align: center;
+            text-align: center; outline: none;
         }
 
         #visual-area { flex: 0.6; position: relative; display: flex; align-items: center; justify-content: center; }
-        #compass-ring { width: 130px; height: 130px; border: 2px solid #222; border-radius: 50%; position: relative; }
+        #compass-ring { 
+            width: 160px; height: 160px; border: 2px solid #333; border-radius: 50%; position: relative; 
+        }
+        /* Cardinal Points */
+        .cardinal { position: absolute; font-weight: bold; font-size: 0.8rem; color: #555; }
+        .n { top: 5px; left: 50%; transform: translateX(-50%); color: #fff; }
+        .s { bottom: 5px; left: 50%; transform: translateX(-50%); }
+        .e { right: 8px; top: 50%; transform: translateY(-50%); }
+        .w { left: 8px; top: 50%; transform: translateY(-50%); }
+
         #target-arrow {
             width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent;
-            border-bottom: 45px solid var(--pointer); position: absolute;
-            left: calc(50% - 12px); top: 5px; transform-origin: center 60px;
+            border-bottom: 50px solid var(--pointer); position: absolute;
+            left: calc(50% - 12px); top: 15px; transform-origin: center 65px;
+            transition: transform 0.2s ease-out;
         }
 
         .grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
         .box { background: var(--card); padding: 12px; border-radius: 4px; border-bottom: 1px solid #333; }
         .label { font-size: 0.75rem; color: #777; text-transform: uppercase; margin-bottom: 4px; font-weight: bold; }
+        .value { font-size: 1.6rem; color: var(--accent); font-weight: bold; }
         
-        .value { font-size: 1.6rem; color: var(--accent); font-weight: bold; line-height: 1.2; }
-        .white-text { color: #ffffff !important; font-size: 1.3rem; }
+        /* Selectable for Copy/Paste */
+        .selectable { user-select: text !important; -webkit-user-select: text !important; color: #fff; font-size: 1.3rem; }
 
-        button { 
-            background: #fff; color: #000; border: none; padding: 20px; 
-            font-weight: bold; border-radius: 4px; margin-top: 10px; width: 100%;
-        }
+        #status-dot { height: 8px; width: 8px; background-color: #333; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        button { background: #fff; color: #000; border: none; padding: 20px; font-weight: bold; border-radius: 4px; width: 100%; margin-top: 10px; }
     </style>
 </head>
 <body>
     <header><h1>AlphaCheck</h1></header>
 
-    <div class="label" style="margin-bottom:4px; text-align: center;">Target Datum (Decimal)</div>
+    <div class="label" style="text-align: center; margin: 10px 0 4px;">Target Datum (Decimal)</div>
     <form action="javascript:void(0);" onsubmit="document.getElementById('targetInput').blur(); updateAll();">
         <input type="text" id="targetInput" placeholder="48.3124, -122.6732" oninput="updateAll()">
     </form>
 
     <div id="visual-area">
-        <div id="compass-ring"><div id="target-arrow"></div></div>
+        <div id="compass-ring">
+            <div class="cardinal n">N</div><div class="cardinal s">S</div>
+            <div class="cardinal e">E</div><div class="cardinal w">W</div>
+            <div id="target-arrow"></div>
+        </div>
     </div>
 
     <div class="grid">
         <div class="box" style="border-left: 5px solid #ff3b30;">
-            <div class="label">Distance to Target (NM)</div>
-            <div id="distVal" class="value" style="font-size: 2.2rem; color: #ff3b30;">0.00 NM</div>
+            <div class="label">Distance & Heading</div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <span id="distVal" class="value" style="font-size: 2.2rem; color: #ff3b30;">0.00 NM</span>
+                <span id="headVal" class="value" style="font-size: 1.5rem; color: #ff3b30;">---°</span>
+            </div>
         </div>
         
         <div class="box"><div class="label">Degrees Decimal Minutes (Hundredths)</div><div id="dmhVal" class="value">--° --.---'</div></div>
         <div class="box"><div class="label">Degrees Minutes Seconds</div><div id="dmsVal" class="value">--° --' --"</div></div>
         
-        <div class="box" style="background: #111; border: 1px solid #444; margin-top: 5px;">
-            <div class="label">Current Location (WGS84)</div>
-            <div id="curLoc" class="value white-text">Searching...</div>
+        <div class="box" style="background: #111; border: 1px solid #444;">
+            <div class="label"><span id="status-dot"></span>Current Location (Tap to Copy)</div>
+            <div id="curLoc" class="value selectable">Searching...</div>
         </div>
     </div>
 
@@ -88,7 +102,6 @@
             const absDeg = Math.abs(deg);
             const d = Math.floor(absDeg);
             const paddedD = d.toString().padStart(isLat ? 2 : 3, '0');
-            
             if (format === 'DMH') {
                 const m = ((absDeg - d) * 60).toFixed(3).padStart(6, '0');
                 return `${paddedD}° ${m}' ${dir}`;
@@ -119,9 +132,11 @@
             const a = Math.sin(dLat/2)**2 + Math.cos(myPos.lat * Math.PI/180) * Math.cos(targetPos.lat * Math.PI/180) * Math.sin(dLon/2)**2;
             const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             document.getElementById('distVal').innerText = distance.toFixed(2) + ' NM';
+
             const y = Math.sin(dLon) * Math.cos(targetPos.lat * Math.PI/180);
             const x = Math.cos(myPos.lat * Math.PI/180) * Math.sin(targetPos.lat * Math.PI/180) - Math.sin(myPos.lat * Math.PI/180) * Math.cos(targetPos.lat * Math.PI/180) * Math.cos(dLon);
             let bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+            document.getElementById('headVal').innerText = Math.round(bearing).toString().padStart(3, '0') + '°';
             document.getElementById('target-arrow').style.transform = `rotate(${(bearing - currentHeading + 360) % 360}deg)`;
         }
 
@@ -141,6 +156,9 @@
             }
             navigator.geolocation.watchPosition(p => {
                 myPos.lat = p.coords.latitude; myPos.lon = p.coords.longitude;
+                const acc = p.coords.accuracy;
+                const dot = document.getElementById('status-dot');
+                dot.style.backgroundColor = acc < 11 ? '#00FF41' : (acc < 31 ? '#FFD700' : '#FF3B30');
                 document.getElementById('curLoc').innerText = `${myPos.lat.toFixed(5)}, ${myPos.lon.toFixed(5)}`;
                 calculateMetrics();
             }, null, { enableHighAccuracy: true });
