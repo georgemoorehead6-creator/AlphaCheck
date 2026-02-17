@@ -154,4 +154,26 @@
                 DeviceOrientationEvent.requestPermission().then(s => {
                     if (s==='granted') window.addEventListener('deviceorientation', e => {
                         currentHeading = e.webkitCompassHeading || (360 - e.alpha);
-                        document
+                        document.getElementById('live-heading').innerText = 'HDG: ' + Math.round(currentHeading).toString().padStart(3, '0') + '°';
+                        calculateMetrics();
+                    });
+                });
+            } else {
+                window.addEventListener('deviceorientation', e => {
+                    currentHeading = e.webkitCompassHeading || (360 - e.alpha);
+                    document.getElementById('live-heading').innerText = 'HDG: ' + Math.round(currentHeading).toString().padStart(3, '0') + '°';
+                    calculateMetrics();
+                });
+            }
+            navigator.geolocation.watchPosition(p => {
+                myPos.lat = p.coords.latitude; myPos.lon = p.coords.longitude;
+                const dot = document.getElementById('status-dot');
+                dot.style.background = p.coords.accuracy < 15 ? '#00FF41' : '#FF3B30';
+                document.getElementById('curLoc').innerText = `${myPos.lat.toFixed(5)}, ${myPos.lon.toFixed(5)}`;
+                calculateMetrics();
+            }, null, { enableHighAccuracy: true });
+            document.getElementById('startBtn').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
