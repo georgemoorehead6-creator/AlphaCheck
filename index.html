@@ -26,12 +26,11 @@
 
         #visual-area { flex: 0.6; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         
-        /* High Detail Compass */
         #compass-ring { 
             width: 180px; height: 180px; border: 2px solid #333; border-radius: 50%; position: relative; 
             background: repeating-conic-gradient(from 0deg, #333 0deg 1deg, transparent 1deg 10deg);
         }
-        .cardinal { position: absolute; font-weight: 900; font-size: 1rem; color: #fff; }
+        .cardinal { position: absolute; font-weight: 900; font-size: 1.2rem; color: #fff; }
         .n { top: 8px; left: 50%; transform: translateX(-50%); }
         .s { bottom: 8px; left: 50%; transform: translateX(-50%); }
         .e { right: 8px; top: 50%; transform: translateY(-50%); }
@@ -49,12 +48,11 @@
         .label { font-size: 0.7rem; color: #777; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; }
         .value { font-size: 1.6rem; color: var(--accent); font-weight: bold; }
         
-        /* Copy Interface */
         .copy-row { display: flex; justify-content: space-between; align-items: center; }
         #copyBtn { background: #333; color: #fff; border: none; padding: 8px 15px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
 
         #status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
-        .init-btn { background: #fff; color: #000; border: none; padding: 20px; font-weight: bold; border-radius: 4px; width: 100%; margin-top: 10px; }
+        .init-btn { background: #fff; color: #000; border: none; padding: 25px; font-size: 1.2rem; font-weight: 900; border-radius: 8px; width: 100%; margin-top: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -84,9 +82,7 @@
                 <span id="headVal" class="value" style="font-size: 1.4rem; color: #ff3b30;">BRG: ---°</span>
             </div>
         </div>
-        
         <div class="box"><div class="label">Degrees Decimal Minutes (Hundredths)</div><div id="dmhVal" class="value">--° --.---'</div></div>
-        
         <div class="box" style="background: #111; border: 1px solid #444;">
             <div class="label"><span id="status-dot" style="background: #333;"></span>Current Location (WGS84)</div>
             <div class="copy-row">
@@ -99,27 +95,26 @@
     <button id="startBtn" class="init-btn" onclick="initSensors()">INITIALIZE SENSORS</button>
 
     <script>
-        let myPos = { lat: 0, lon: 0 };
-        let targetPos = { lat: 0, lon: 0 };
+        let myPos = { lat: null, lon: null };
+        let targetPos = { lat: null, lon: null };
         let currentHeading = 0;
 
-        function toFullCoord(deg, isLat, format) {
-            if (!deg && deg !== 0) return "--";
+        function toFullCoord(deg, isLat) {
+            if (deg === null) return "--";
             const dir = isLat ? (deg >= 0 ? 'N' : 'S') : (deg >= 0 ? 'E' : 'W');
             const absDeg = Math.abs(deg);
             const d = Math.floor(absDeg);
-            const paddedD = d.toString().padStart(isLat ? 2 : 3, '0');
             const m = ((absDeg - d) * 60).toFixed(3).padStart(6, '0');
-            return `${paddedD}° ${m}' ${dir}`;
+            return `${d.toString().padStart(isLat ? 2 : 3, '0')}° ${m}' ${dir}`;
         }
 
         function copyToClipboard() {
             const text = document.getElementById('curLoc').innerText;
-            navigator.clipboard.writeText(text);
-            const btn = document.getElementById('copyBtn');
-            btn.innerText = "COPIED!";
-            btn.style.background = "#00FF41";
-            setTimeout(() => { btn.innerText = "COPY"; btn.style.background = "#333"; }, 2000);
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('copyBtn');
+                btn.innerText = "COPIED!"; btn.style.background = "#00FF41";
+                setTimeout(() => { btn.innerText = "COPY"; btn.style.background = "#333"; }, 2000);
+            });
         }
 
         function updateAll() {
@@ -128,13 +123,15 @@
             if (parts.length === 2) {
                 targetPos.lat = parseFloat(parts[0]);
                 targetPos.lon = parseFloat(parts[1]);
-                document.getElementById('dmhVal').innerHTML = `${toFullCoord(targetPos.lat, true, 'DMH')}<br>${toFullCoord(targetPos.lon, false, 'DMH')}`;
+                if (!isNaN(targetPos.lat) && !isNaN(targetPos.lon)) {
+                    document.getElementById('dmhVal').innerHTML = `${toFullCoord(targetPos.lat, true)}<br>${toFullCoord(targetPos.lon, false)}`;
+                }
             }
             calculateMetrics();
         }
 
         function calculateMetrics() {
-            if (!myPos.lat || !targetPos.lat) return;
+            if (myPos.lat === null || targetPos.lat === null) return;
             const R = 3440.065; 
             const dLat = (targetPos.lat - myPos.lat) * Math.PI / 180;
             const dLon = (targetPos.lon - myPos.lon) * Math.PI / 180;
@@ -149,30 +146,38 @@
             document.getElementById('target-arrow').style.transform = `rotate(${(bearing - currentHeading + 360) % 360}deg)`;
         }
 
-        function initSensors() {
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission().then(s => {
-                    if (s==='granted') window.addEventListener('deviceorientation', e => {
-                        currentHeading = e.webkitCompassHeading || (360 - e.alpha);
-                        document.getElementById('live-heading').innerText = 'HDG: ' + Math.round(currentHeading).toString().padStart(3, '0') + '°';
-                        calculateMetrics();
-                    });
-                });
+        async function initSensors() {
+            const btn = document.getElementById('startBtn');
+            btn.innerText = "ACCESSING...";
+
+            // Orientation Permission (iOS specific)
+            if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const response = await DeviceOrientationEvent.requestPermission();
+                    if (response === 'granted') {
+                        setupOrientation();
+                    }
+                } catch (e) { console.error(e); }
             } else {
-                window.addEventListener('deviceorientation', e => {
-                    currentHeading = e.webkitCompassHeading || (360 - e.alpha);
-                    document.getElementById('live-heading').innerText = 'HDG: ' + Math.round(currentHeading).toString().padStart(3, '0') + '°';
-                    calculateMetrics();
-                });
+                setupOrientation();
             }
+
+            // Geolocation
             navigator.geolocation.watchPosition(p => {
                 myPos.lat = p.coords.latitude; myPos.lon = p.coords.longitude;
-                const dot = document.getElementById('status-dot');
-                dot.style.background = p.coords.accuracy < 15 ? '#00FF41' : '#FF3B30';
+                document.getElementById('status-dot').style.background = p.coords.accuracy < 20 ? '#00FF41' : '#FF3B30';
                 document.getElementById('curLoc').innerText = `${myPos.lat.toFixed(5)}, ${myPos.lon.toFixed(5)}`;
                 calculateMetrics();
-            }, null, { enableHighAccuracy: true });
-            document.getElementById('startBtn').style.display = 'none';
+                btn.style.display = 'none';
+            }, e => { btn.innerText = "GPS ERROR"; }, { enableHighAccuracy: true });
+        }
+
+        function setupOrientation() {
+            window.addEventListener('deviceorientation', e => {
+                currentHeading = e.webkitCompassHeading || (360 - e.alpha) || 0;
+                document.getElementById('live-heading').innerText = 'HDG: ' + Math.round(currentHeading).toString().padStart(3, '0') + '°';
+                calculateMetrics();
+            }, true);
         }
     </script>
 </body>
