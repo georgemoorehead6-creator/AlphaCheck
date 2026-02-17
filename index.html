@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AlphaCheck SAR</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; overflow: hidden; }
+        #compass { width: 300px; height: 300px; border: 5px solid #333; border-radius: 50%; margin: 20px auto; position: relative; }
+        #arrow { width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent; border-bottom: 100px solid #ff0000; position: absolute; left: 130px; top: 50px; transition: transform 0.1s; }
+        .data { font-size: 1.2rem; margin: 10px 0; background: #111; padding: 15px; border-radius: 8px; border: 1px solid #444; }
+        .label { color: #888; font-size: 0.8rem; text-transform: uppercase; }
+        button { background: #007AFF; color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 1rem; margin-top: 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>ALPHACHECK SAR</h2>
+    <div id="compass"><div id="arrow"></div></div>
+    
+    <div class="data">
+        <div class="label">Heading</div>
+        <div id="heading">0°</div>
+    </div>
+    
+    <div class="data">
+        <div class="label">GPS Coordinates</div>
+        <div id="coords">Waiting for lock...</div>
+    </div>
+
+    <button onclick="requestPermissions()">Enable Sensors</button>
+
+    <script>
+        function requestPermissions() {
+            // Request Compass (iOS specific)
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission().then(state => {
+                    if (state === 'granted') window.addEventListener('deviceorientation', handleOrientation);
+                });
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
+            
+            // Request GPS
+            navigator.geolocation.watchPosition(pos => {
+                const { latitude, longitude } = pos.coords;
+                document.getElementById('coords').innerText = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+            }, err => console.error(err), { enableHighAccuracy: true });
+        }
+
+        function handleOrientation(event) {
+            let heading = event.webkitCompassHeading || (360 - event.alpha);
+            document.getElementById('heading').innerText = Math.round(heading) + '°';
+            document.getElementById('arrow').style.transform = `rotate(${heading}deg)`;
+        }
+    </script>
+</body>
+</html>
