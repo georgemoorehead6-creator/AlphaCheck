@@ -2,57 +2,134 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AlphaCheck SAR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>AlphaCheck 5.1 SAR</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; overflow: hidden; }
-        #compass { width: 300px; height: 300px; border: 5px solid #333; border-radius: 50%; margin: 20px auto; position: relative; }
-        #arrow { width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent; border-bottom: 100px solid #ff0000; position: absolute; left: 130px; top: 50px; transition: transform 0.1s; }
-        .data { font-size: 1.2rem; margin: 10px 0; background: #111; padding: 15px; border-radius: 8px; border: 1px solid #444; }
-        .label { color: #888; font-size: 0.8rem; text-transform: uppercase; }
-        button { background: #007AFF; color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 1rem; margin-top: 20px; cursor: pointer; }
+        :root { --bg: #050505; --card: #121212; --accent: #00FF41; --pointer: #007AFF; }
+        body { 
+            background: var(--bg); color: #fff; font-family: ui-monospace, 'Courier New', monospace;
+            margin: 0; padding: env(safe-area-inset-top) 20px 40px;
+            display: flex; flex-direction: column; height: 100vh; box-sizing: border-box;
+        }
+        header { padding: 10px 0; border-bottom: 1px solid #222; margin-bottom: 10px; }
+        h1 { margin: 0; font-size: 1rem; letter-spacing: 2px; text-align: center; font-weight: 900; }
+        
+        input { 
+            width: 100%; background: #1a1a1a; border: 1px solid #333; color: var(--accent);
+            padding: 12px; border-radius: 4px; font-size: 1rem; box-sizing: border-box; outline: none;
+        }
+
+        #visual-area { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; }
+        #compass-ring { width: 220px; height: 220px; border: 2px solid #222; border-radius: 50%; position: relative; }
+        #target-arrow {
+            width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent;
+            border-bottom: 50px solid var(--pointer); position: absolute;
+            left: calc(50% - 15px); top: 10px; transform-origin: center 100px;
+        }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .box { background: var(--card); padding: 10px; border-radius: 4px; border-bottom: 1px solid #333; }
+        .full { grid-column: span 2; border-left: 3px solid var(--pointer); }
+        .label { font-size: 0.55rem; color: #666; text-transform: uppercase; margin-bottom: 2px; }
+        .value { font-size: 0.95rem; color: var(--accent); white-space: nowrap; }
+
+        button { 
+            background: #fff; color: #000; border: none; padding: 18px; 
+            font-weight: bold; border-radius: 4px; margin-top: 15px; width: 100%;
+        }
     </style>
 </head>
 <body>
-    <h2>ALPHACHECK SAR</h2>
-    <div id="compass"><div id="arrow"></div></div>
-    
-    <div class="data">
-        <div class="label">Heading</div>
-        <div id="heading">0°</div>
-    </div>
-    
-    <div class="data">
-        <div class="label">GPS Coordinates</div>
-        <div id="coords">Waiting for lock...</div>
+    <header><h1>ALPHACHECK <span style="color:#007AFF">5.1</span></h1></header>
+
+    <div class="label" style="margin-bottom:4px">Target Datum (Decimal)</div>
+    <input type="text" id="targetInput" placeholder="48.3124, -122.6732" oninput="updateTarget()">
+
+    <div id="visual-area">
+        <div id="compass-ring"><div id="target-arrow"></div></div>
     </div>
 
-    <button onclick="requestPermissions()">Enable Sensors</button>
+    <div class="grid">
+        <div class="box full" style="border-left-color: #ff3b30;">
+            <div class="label">Distance to Target</div>
+            <div id="distVal" class="value" style="font-size: 1.4rem;">0 m</div>
+        </div>
+        
+        <div class="box full"><div class="label">Current Decimal (DD.DDDDD)</div><div id="ddVal" class="value">0.00000, 0.00000</div></div>
+        <div class="box full"><div class="label">Current DD.MM.HH (Hearth)</div><div id="dmhVal" class="value">00° 00.000', 000° 00.000'</div></div>
+        <div class="box full"><div class="label">Current DD.MM.SS</div><div id="dmsVal" class="value">00° 00' 00", 000° 00' 00"</div></div>
+    </div>
+
+    <button id="startBtn" onclick="initSensors()">INITIALIZE SENSORS</button>
 
     <script>
-        function requestPermissions() {
-            // Request Compass (iOS specific)
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission().then(state => {
-                    if (state === 'granted') window.addEventListener('deviceorientation', handleOrientation);
-                });
-            } else {
-                window.addEventListener('deviceorientation', handleOrientation);
-            }
-            
-            // Request GPS
-            navigator.geolocation.watchPosition(pos => {
-                const { latitude, longitude } = pos.coords;
-                document.getElementById('coords').innerText = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-            }, err => console.error(err), { enableHighAccuracy: true });
+        let myPos = { lat: 0, lon: 0 };
+        let targetPos = { lat: 0, lon: 0 };
+        let currentHeading = 0;
+
+        function toDMH(deg) {
+            const d = Math.floor(Math.abs(deg));
+            const m = ((Math.abs(deg) - d) * 60).toFixed(3);
+            return `${d}° ${m}'`;
         }
 
-        function handleOrientation(event) {
-            let heading = event.webkitCompassHeading || (360 - event.alpha);
-            document.getElementById('heading').innerText = Math.round(heading) + '°';
-            document.getElementById('arrow').style.transform = `rotate(${heading}deg)`;
+        function toDMS(deg) {
+            const d = Math.floor(Math.abs(deg));
+            const m = Math.floor((Math.abs(deg) - d) * 60);
+            const s = Math.round((Math.abs(deg) - d - m/60) * 3600);
+            return `${d}° ${m}' ${s}"`;
+        }
+
+        function updateTarget() {
+            const val = document.getElementById('targetInput').value;
+            const parts = val.split(',');
+            if (parts.length === 2) {
+                targetPos.lat = parseFloat(parts[0]);
+                targetPos.lon = parseFloat(parts[1]);
+                calculateMetrics();
+            }
+        }
+
+        function calculateMetrics() {
+            if (!myPos.lat || !targetPos.lat) return;
+            const R = 6371000;
+            const dLat = (targetPos.lat - myPos.lat) * Math.PI / 180;
+            const dLon = (targetPos.lon - myPos.lon) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(myPos.lat * Math.PI/180) * Math.cos(targetPos.lat * Math.PI/180) * Math.sin(dLon/2)**2;
+            const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            document.getElementById('distVal').innerText = distance > 1000 ? (distance/1000).toFixed(2) + ' km' : Math.round(distance) + ' m';
+
+            const y = Math.sin(dLon) * Math.cos(targetPos.lat * Math.PI/180);
+            const x = Math.cos(myPos.lat * Math.PI/180) * Math.sin(targetPos.lat * Math.PI/180) - Math.sin(myPos.lat * Math.PI/180) * Math.cos(targetPos.lat * Math.PI/180) * Math.cos(dLon);
+            let bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+            document.getElementById('target-arrow').style.transform = `rotate(${(bearing - currentHeading + 360) % 360}deg)`;
+
+            document.getElementById('ddVal').innerText = `${myPos.lat.toFixed(5)}, ${myPos.lon.toFixed(5)}`;
+            document.getElementById('dmhVal').innerText = `${toDMH(myPos.lat)}, ${toDMH(myPos.lon)}`;
+            document.getElementById('dmsVal').innerText = `${toDMS(myPos.lat)}, ${toDMS(myPos.lon)}`;
+        }
+
+        function initSensors() {
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission().then(s => {
+                    if (s==='granted') window.addEventListener('deviceorientation', e => {
+                        currentHeading = e.webkitCompassHeading || (360 - e.alpha);
+                        calculateMetrics();
+                    });
+                });
+            } else {
+                window.addEventListener('deviceorientation', e => {
+                    currentHeading = e.webkitCompassHeading || (360 - e.alpha);
+                    calculateMetrics();
+                });
+            }
+            navigator.geolocation.watchPosition(p => {
+                myPos.lat = p.coords.latitude; myPos.lon = p.coords.longitude;
+                calculateMetrics();
+            }, null, { enableHighAccuracy: true });
+            document.getElementById('startBtn').style.display = 'none';
         }
     </script>
 </body>
