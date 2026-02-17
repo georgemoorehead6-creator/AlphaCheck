@@ -14,53 +14,58 @@
             background: var(--bg); color: #fff; font-family: ui-monospace, 'Courier New', monospace;
             margin: 0; padding: env(safe-area-inset-top) 15px 40px;
             display: flex; flex-direction: column; height: 100vh; box-sizing: border-box;
-            user-select: none; /* Prevents accidental UI selection */
         }
-        header { padding: 10px 0; border-bottom: 1px solid #222; }
-        h1 { margin: 0; font-size: 2.2rem; text-align: center; font-weight: 700; }
+        header { padding: 5px 0; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+        h1 { margin: 0; font-size: 1.2rem; font-weight: 700; }
+        #live-heading { font-size: 1.2rem; font-weight: bold; color: var(--pointer); }
         
         input { 
             width: 100%; background: #1a1a1a; border: 2px solid #444; color: var(--accent);
-            padding: 15px; border-radius: 6px; font-size: 1.4rem; box-sizing: border-box; 
-            text-align: center; outline: none;
+            padding: 12px; border-radius: 6px; font-size: 1.3rem; box-sizing: border-box; text-align: center;
         }
 
-        #visual-area { flex: 0.6; position: relative; display: flex; align-items: center; justify-content: center; }
+        #visual-area { flex: 0.6; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        
+        /* High Detail Compass */
         #compass-ring { 
-            width: 160px; height: 160px; border: 2px solid #333; border-radius: 50%; position: relative; 
+            width: 180px; height: 180px; border: 2px solid #333; border-radius: 50%; position: relative; 
+            background: repeating-conic-gradient(from 0deg, #333 0deg 1deg, transparent 1deg 10deg);
         }
-        /* Cardinal Points */
-        .cardinal { position: absolute; font-weight: bold; font-size: 0.8rem; color: #555; }
-        .n { top: 5px; left: 50%; transform: translateX(-50%); color: #fff; }
-        .s { bottom: 5px; left: 50%; transform: translateX(-50%); }
+        .cardinal { position: absolute; font-weight: 900; font-size: 1rem; color: #fff; }
+        .n { top: 8px; left: 50%; transform: translateX(-50%); }
+        .s { bottom: 8px; left: 50%; transform: translateX(-50%); }
         .e { right: 8px; top: 50%; transform: translateY(-50%); }
         .w { left: 8px; top: 50%; transform: translateY(-50%); }
 
         #target-arrow {
-            width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent;
-            border-bottom: 50px solid var(--pointer); position: absolute;
-            left: calc(50% - 12px); top: 15px; transform-origin: center 65px;
-            transition: transform 0.2s ease-out;
+            width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent;
+            border-bottom: 55px solid var(--pointer); position: absolute;
+            left: calc(50% - 14px); top: 20px; transform-origin: center 70px;
+            transition: transform 0.1s linear;
         }
 
         .grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
         .box { background: var(--card); padding: 12px; border-radius: 4px; border-bottom: 1px solid #333; }
-        .label { font-size: 0.75rem; color: #777; text-transform: uppercase; margin-bottom: 4px; font-weight: bold; }
+        .label { font-size: 0.7rem; color: #777; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; }
         .value { font-size: 1.6rem; color: var(--accent); font-weight: bold; }
         
-        /* Selectable for Copy/Paste */
-        .selectable { user-select: text !important; -webkit-user-select: text !important; color: #fff; font-size: 1.3rem; }
+        /* Copy Interface */
+        .copy-row { display: flex; justify-content: space-between; align-items: center; }
+        #copyBtn { background: #333; color: #fff; border: none; padding: 8px 15px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
 
-        #status-dot { height: 8px; width: 8px; background-color: #333; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        button { background: #fff; color: #000; border: none; padding: 20px; font-weight: bold; border-radius: 4px; width: 100%; margin-top: 10px; }
+        #status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .init-btn { background: #fff; color: #000; border: none; padding: 20px; font-weight: bold; border-radius: 4px; width: 100%; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <header><h1>AlphaCheck</h1></header>
+    <header>
+        <h1>AlphaCheck</h1>
+        <div id="live-heading">HDG: ---°</div>
+    </header>
 
-    <div class="label" style="text-align: center; margin: 10px 0 4px;">Target Datum (Decimal)</div>
+    <div class="label" style="text-align: center; margin-top: 10px;">Target Datum (Decimal)</div>
     <form action="javascript:void(0);" onsubmit="document.getElementById('targetInput').blur(); updateAll();">
-        <input type="text" id="targetInput" placeholder="48.3124, -122.6732" oninput="updateAll()">
+        <input type="text" id="targetInput" placeholder="Lat, Lon" oninput="updateAll()">
     </form>
 
     <div id="visual-area">
@@ -73,23 +78,25 @@
 
     <div class="grid">
         <div class="box" style="border-left: 5px solid #ff3b30;">
-            <div class="label">Distance & Heading</div>
+            <div class="label">Distance & Bearing to Target</div>
             <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                <span id="distVal" class="value" style="font-size: 2.2rem; color: #ff3b30;">0.00 NM</span>
-                <span id="headVal" class="value" style="font-size: 1.5rem; color: #ff3b30;">---°</span>
+                <span id="distVal" class="value" style="font-size: 2rem; color: #ff3b30;">0.00 NM</span>
+                <span id="headVal" class="value" style="font-size: 1.4rem; color: #ff3b30;">BRG: ---°</span>
             </div>
         </div>
         
         <div class="box"><div class="label">Degrees Decimal Minutes (Hundredths)</div><div id="dmhVal" class="value">--° --.---'</div></div>
-        <div class="box"><div class="label">Degrees Minutes Seconds</div><div id="dmsVal" class="value">--° --' --"</div></div>
         
         <div class="box" style="background: #111; border: 1px solid #444;">
-            <div class="label"><span id="status-dot"></span>Current Location (Tap to Copy)</div>
-            <div id="curLoc" class="value selectable">Searching...</div>
+            <div class="label"><span id="status-dot" style="background: #333;"></span>Current Location (WGS84)</div>
+            <div class="copy-row">
+                <div id="curLoc" class="value" style="color: #fff; font-size: 1.2rem;">Searching...</div>
+                <button id="copyBtn" onclick="copyToClipboard()">COPY</button>
+            </div>
         </div>
     </div>
 
-    <button id="startBtn" onclick="initSensors()">INITIALIZE SENSORS</button>
+    <button id="startBtn" class="init-btn" onclick="initSensors()">INITIALIZE SENSORS</button>
 
     <script>
         let myPos = { lat: 0, lon: 0 };
@@ -102,14 +109,17 @@
             const absDeg = Math.abs(deg);
             const d = Math.floor(absDeg);
             const paddedD = d.toString().padStart(isLat ? 2 : 3, '0');
-            if (format === 'DMH') {
-                const m = ((absDeg - d) * 60).toFixed(3).padStart(6, '0');
-                return `${paddedD}° ${m}' ${dir}`;
-            } else {
-                const m = Math.floor((absDeg - d) * 60).toString().padStart(2, '0');
-                const s = Math.round((absDeg - d - m/60) * 3600).toString().padStart(2, '0');
-                return `${paddedD}° ${m}' ${s}" ${dir}`;
-            }
+            const m = ((absDeg - d) * 60).toFixed(3).padStart(6, '0');
+            return `${paddedD}° ${m}' ${dir}`;
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('curLoc').innerText;
+            navigator.clipboard.writeText(text);
+            const btn = document.getElementById('copyBtn');
+            btn.innerText = "COPIED!";
+            btn.style.background = "#00FF41";
+            setTimeout(() => { btn.innerText = "COPY"; btn.style.background = "#333"; }, 2000);
         }
 
         function updateAll() {
@@ -119,7 +129,6 @@
                 targetPos.lat = parseFloat(parts[0]);
                 targetPos.lon = parseFloat(parts[1]);
                 document.getElementById('dmhVal').innerHTML = `${toFullCoord(targetPos.lat, true, 'DMH')}<br>${toFullCoord(targetPos.lon, false, 'DMH')}`;
-                document.getElementById('dmsVal').innerHTML = `${toFullCoord(targetPos.lat, true, 'DMS')}<br>${toFullCoord(targetPos.lon, false, 'DMS')}`;
             }
             calculateMetrics();
         }
@@ -136,7 +145,7 @@
             const y = Math.sin(dLon) * Math.cos(targetPos.lat * Math.PI/180);
             const x = Math.cos(myPos.lat * Math.PI/180) * Math.sin(targetPos.lat * Math.PI/180) - Math.sin(myPos.lat * Math.PI/180) * Math.cos(targetPos.lat * Math.PI/180) * Math.cos(dLon);
             let bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-            document.getElementById('headVal').innerText = Math.round(bearing).toString().padStart(3, '0') + '°';
+            document.getElementById('headVal').innerText = 'BRG: ' + Math.round(bearing).toString().padStart(3, '0') + '°';
             document.getElementById('target-arrow').style.transform = `rotate(${(bearing - currentHeading + 360) % 360}deg)`;
         }
 
@@ -145,25 +154,4 @@
                 DeviceOrientationEvent.requestPermission().then(s => {
                     if (s==='granted') window.addEventListener('deviceorientation', e => {
                         currentHeading = e.webkitCompassHeading || (360 - e.alpha);
-                        calculateMetrics();
-                    });
-                });
-            } else {
-                window.addEventListener('deviceorientation', e => {
-                    currentHeading = e.webkitCompassHeading || (360 - e.alpha);
-                    calculateMetrics();
-                });
-            }
-            navigator.geolocation.watchPosition(p => {
-                myPos.lat = p.coords.latitude; myPos.lon = p.coords.longitude;
-                const acc = p.coords.accuracy;
-                const dot = document.getElementById('status-dot');
-                dot.style.backgroundColor = acc < 11 ? '#00FF41' : (acc < 31 ? '#FFD700' : '#FF3B30');
-                document.getElementById('curLoc').innerText = `${myPos.lat.toFixed(5)}, ${myPos.lon.toFixed(5)}`;
-                calculateMetrics();
-            }, null, { enableHighAccuracy: true });
-            document.getElementById('startBtn').style.display = 'none';
-        }
-    </script>
-</body>
-</html>
+                        document
